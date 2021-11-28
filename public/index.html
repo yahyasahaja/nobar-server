@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      body {
+        margin: 0;
+        padding-bottom: 3rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+      }
+
+      #form {
+        background: rgba(0, 0, 0, 0.15);
+        padding: 0.25rem;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        height: 3rem;
+        box-sizing: border-box;
+        backdrop-filter: blur(10px);
+      }
+      #input {
+        border: none;
+        padding: 0 1rem;
+        flex-grow: 1;
+        border-radius: 2rem;
+        margin: 0.25rem;
+      }
+      #input:focus {
+        outline: none;
+      }
+      #form > button {
+        background: #333;
+        border: none;
+        padding: 0 1rem;
+        margin: 0.25rem;
+        border-radius: 3px;
+        outline: none;
+        color: #fff;
+      }
+
+      #messages {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+      }
+      #messages > li {
+        padding: 0.5rem 1rem;
+      }
+      #messages > li:nth-child(odd) {
+        background: #efefef;
+      }
+    </style>
+  </head>
+  <body>
+    <video class="video-stream html5-main-video"></video>
+    <div class="ytp-progress-bar" />
+    <ul id="messages"></ul>
+    <div id="room-id">Room Id:</div>
+    <form id="form">
+      <input id="input" autocomplete="off" /><button>Send</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      var socket = io()
+
+      var form = document.getElementById("form")
+      var input = document.getElementById("input")
+      let roomId = new URLSearchParams(location.search).get("roomId")
+      const CHAT_MESSAGE = "chat-message"
+      const JOIN_ROOM = "join-room"
+      const LEAVE_ROOM = "leave-room"
+      let name = Math.floor(Math.random() * 10000)
+
+      const renderRoomIdElement = (roomId) => {
+        const roomIdElement = document.querySelector("#room-id")
+        const invitationLink = new URL(location.href)
+        const invitationLinkSearch = new URLSearchParams(invitationLink.search)
+        invitationLinkSearch.set("roomId", roomId)
+        invitationLink.search = invitationLinkSearch.toString()
+        roomIdElement.innerHTML = `Invitation Link: ${invitationLink.toString()}`
+      }
+
+      renderRoomIdElement(roomId)
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault()
+
+        if (input.value) {
+          const message = {
+            type: "chat",
+            message: input.value,
+          }
+
+          socket.emit(CHAT_MESSAGE, message)
+          input.value = ""
+        }
+      })
+
+      if (!roomId) {
+        socket.on("connect", () => {
+          roomId = socket.id
+          socket.emit(JOIN_ROOM, { roomId, name })
+          renderRoomIdElement(socket.id)
+
+          socket.on(CHAT_MESSAGE, function ({ message }) {
+            var item = document.createElement("li")
+            item.textContent = message
+            messages.appendChild(item)
+            window.scrollTo(0, document.body.scrollHeight)
+          })
+        })
+      } else {
+        socket.emit(JOIN_ROOM, { roomId, name })
+        socket.on(CHAT_MESSAGE, function ({ message }) {
+          var item = document.createElement("li")
+          item.textContent = message
+          messages.appendChild(item)
+          window.scrollTo(0, document.body.scrollHeight)
+        })
+      }
+
+      socket.on("disconnected", () => {
+        socket.emit(LEAVE_ROOM, { name })
+      })
+    </script>
+  </body>
+</html>
